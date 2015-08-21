@@ -91,8 +91,14 @@ def handle_icmp_response(response):
     udpsock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     udpsock.bind(('0.0.0.0', SERVER_PORT))
     udpsock.connect((source_ip.compressed, CLIENT_PORT))
-    udpsock.send(UDP_HELLO_MSG)
-
+    udpsock.send('Hello from pwnat server')
+    try:
+        response, addr = udpsock.recvfrom(BUFSIZE)
+    except socket.error:
+        logging.debug('UDP message refused, continue')
+    else:
+        logging.info('Got UDP response!')
+        print response
 
 def run_server(ping_interval=10.0):
     sock = socket.socket(socket.AF_INET, socket.SOCK_RAW, ICMP_PROTO)
@@ -108,6 +114,7 @@ def run_server(ping_interval=10.0):
         else:
             logging.debug('Got ICMP response!')
             th = Thread(target=handle_icmp_response, args=[response])
+            time.sleep(1)
             th.start()
 
 
@@ -116,21 +123,19 @@ def run_client(server_ip):
     sock.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
     udpsock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     udpsock.bind(('0.0.0.0', CLIENT_PORT))
-    udpsock.connect((server_ip, SERVER_PORT))
     while True:
-        logging.debug('Sending hello message via UDP.')
-        udpsock.send(UDP_HELLO_MSG)
         send_time_exceed(sock, server_ip, NO_RESPONSE_IP)
         try:
-            response = udpsock.recv(BUFSIZE)
+            response, addr = udpsock.recvfrom(BUFSIZE)
         except socket.error:
             logging.debug('UDP message refused, continue')
-            time.sleep(0.1)
+            time.sleep(1)
             continue
         else:
             logging.info('Got UDP response!')
-            print response
-            break
+            logging.info(response)
+            udpsock.sendto('Hello from pypwnat client', addr)
+            #break
 
 
 if __name__ == '__main__':
